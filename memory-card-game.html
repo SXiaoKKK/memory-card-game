@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>记忆卡片配对</title>
+    <!-- 引入Howler.js库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Arial Rounded MT Bold', 'Helvetica Rounded', Arial, sans-serif;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .screen {
+            display: none;
+            padding: 30px;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 加载界面 */
+        #loading-screen {
+            height: 500px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .loading-logo {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #6e8efb;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading-bar {
+            width: 80%;
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #6e8efb, #a777e3);
+            width: 0%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+
+        /* 主菜单界面 */
+        .game-title {
+            font-size: 2.5rem;
+            color: #6e8efb;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .menu-button {
+            width: 100%;
+            max-width: 300px;
+            margin: 15px auto;
+            padding: 18px;
+            font-size: 1.3rem;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(110, 142, 251, 0.3);
+            display: block;
+        }
+
+        .menu-button:hover,
+        .menu-button:active {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(110, 142, 251, 0.4);
+        }
+
+        /* 难度选择界面 */
+        .difficulty-list {
+            list-style: none;
+            margin: 30px 0;
+        }
+
+        .difficulty-item {
+            padding: 20px;
+            margin: 15px auto;
+            max-width: 300px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+        }
+
+        .difficulty-item:hover,
+        .difficulty-item.selected {
+            border-color: #6e8efb;
+            background: #edf2ff;
+            transform: scale(1.02);
+        }
+
+        .difficulty-name {
+            font-size: 1.5rem;
+            color: #444;
+            margin-bottom: 5px;
+        }
+
+        .difficulty-desc {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        /* 游戏界面 */
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 1.1rem;
+            color: #666;
+        }
+
+        .stat {
+            background: #f8f9fa;
+            padding: 8px 15px;
+            border-radius: 10px;
+            min-width: 80px;
+        }
+
+        .cards-grid {
+            display: grid;
+            gap: 12px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .card {
+            aspect-ratio: 1;
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            border-radius: 15px;
+            cursor: pointer;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .card.flipped {
+            transform: rotateY(180deg);
+        }
+
+        .card.matched {
+            transform: rotateY(180deg);
+            opacity: 0.7;
+            cursor: default;
+        }
+
+        /* 修改卡片背面：匹配成功时移除问号 */
+        .card-front,
+        .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #6e8efb, #a777e3);
+            color: white;
+        }
+
+        /* 修改卡片背面问号样式 */
+        .card .card-back::after {
+            content: "?";
+        }
+
+        /* 匹配成功时隐藏问号 */
+        .card.matched .card-back::after {
+            content: "";
+        }
+
+        .card-front {
+            background: white;
+            transform: rotateY(180deg);
+            color: #6e8efb;
+        }
+
+        /* 游戏结束界面 */
+        .result-title {
+            font-size: 2.5rem;
+            color: #4CAF50;
+            margin: 20px 0;
+        }
+
+        .result-stats {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 20px;
+            margin: 30px auto;
+            max-width: 400px;
+        }
+
+        .result-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 1.2rem;
+        }
+
+        .result-stat:last-child {
+            border-bottom: none;
+        }
+
+        .highlight {
+            color: #6e8efb;
+            font-weight: bold;
+        }
+
+        /* 设置界面 */
+        .settings-group {
+            max-width: 400px;
+            margin: 30px auto;
+            text-align: left;
+        }
+
+        .setting-item {
+            margin: 25px 0;
+        }
+
+        .setting-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+
+        .slider {
+            width: 100%;
+            height: 8px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: #e0e0e0;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #6e8efb;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 音乐控制按钮 */
+        .music-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #6e8efb;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            z-index: 1000;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 600px) {
+            #game-container {
+                border-radius: 20px;
+            }
+
+            .screen {
+                padding: 20px;
+            }
+
+            .game-title {
+                font-size: 2rem;
+            }
+
+            .menu-button {
+                padding: 15px;
+                font-size: 1.1rem;
+            }
+
+            .cards-grid {
+                gap: 8px;
+            }
+
+            .music-toggle {
+                top: 10px;
+                right: 10px;
+                width: 35px;
+                height: 35px;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .game-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .stats {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .card-front,
+            .card-back {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 背景音乐控制按钮 -->
+    <button id="music-toggle" class="music-toggle" onclick="toggleMusic()">♪</button>
+
+    <div id="game-container">
+        <!-- 加载界面 -->
+        <div id="loading-screen" class="screen active">
+            <div class="loading-logo">记忆卡片配对</div>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+            <div>加载中...</div>
+        </div>
+
+        <!-- 主菜单界面 -->
+        <div id="main-menu" class="screen">
+            <h1 class="game-title">记忆卡片配对</h1>
+            <button class="menu-button" onclick="playButtonSound(); showScreen('difficulty-screen')">开始游戏</button>
+            <button class="menu-button" onclick="playButtonSound(); showScreen('records-screen')">最佳纪录</button>
+            <button class="menu-button" onclick="playButtonSound(); showScreen('settings-screen')">游戏设置</button>
+        </div>
+
+        <!-- 难度选择界面 -->
+        <div id="difficulty-screen" class="screen">
+            <h2>选择难度</h2>
+            <ul class="difficulty-list">
+                <li class="difficulty-item" onclick="playButtonSound(); selectDifficulty('easy')">
+                    <div class="difficulty-name">简单</div>
+                    <div class="difficulty-desc">4×4 网格 | 8对卡片</div>
+                </li>
+                <li class="difficulty-item" onclick="playButtonSound(); selectDifficulty('medium')">
+                    <div class="difficulty-name">中等</div>
+                    <div class="difficulty-desc">5×6 网格 | 15对卡片</div>
+                </li>
+                <li class="difficulty-item" onclick="playButtonSound(); selectDifficulty('hard')">
+                    <div class="difficulty-name">困难</div>
+                    <div class="difficulty-desc">6×8 网格 | 24对卡片</div>
+                </li>
+            </ul>
+            <div class="action-buttons">
+                <button class="menu-button" onclick="playButtonSound(); startGame()" style="flex: 1;">开始游戏</button>
+                <button class="menu-button" onclick="playButtonSound(); goBack()"
+                    style="flex: 1; background: #888;">返回</button>
+            </div>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <div class="stats">
+                    <div class="stat">时间: <span id="timer">00:00</span></div>
+                    <div class="stat">步数: <span id="moves">0</span></div>
+                </div>
+                <button class="menu-button" style="padding: 10px 20px; font-size: 1rem;"
+                    onclick="playButtonSound(); showScreen('game-menu')">菜单</button>
+            </div>
+            <div id="cards-container" class="cards-grid"></div>
+        </div>
+
+        <!-- 游戏菜单 -->
+        <div id="game-menu" class="screen">
+            <h2>游戏菜单</h2>
+            <button class="menu-button" onclick="playButtonSound(); showScreen('settings-screen')">游戏设置</button>
+            <button class="menu-button" onclick="playButtonSound(); restartGame()">重新开始</button>
+            <button class="menu-button" onclick="playButtonSound(); showScreen('difficulty-screen')">难度选择</button>
+            <button class="menu-button" onclick="playButtonSound(); showScreen('main-menu')">退出游戏</button>
+            <button class="menu-button" onclick="playButtonSound(); goBack()" style="background: #888;">返回游戏</button>
+        </div>
+
+        <!-- 游戏结束界面 -->
+        <div id="result-screen" class="screen">
+            <div class="result-title">恭喜通关！</div>
+            <div class="result-stats">
+                <div class="result-stat">
+                    <span>用时:</span>
+                    <span id="final-time" class="highlight">00:00</span>
+                </div>
+                <div class="result-stat">
+                    <span>步数:</span>
+                    <span id="final-moves" class="highlight">0</span>
+                </div>
+                <div class="result-stat">
+                    <span>最佳时间:</span>
+                    <span id="best-time" class="highlight">--:--</span>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button class="menu-button" onclick="playButtonSound(); restartGame()">再玩一次</button>
+                <button class="menu-button" onclick="playButtonSound(); showScreen('main-menu')">返回主页</button>
+            </div>
+        </div>
+
+        <!-- 最佳纪录界面 -->
+        <div id="records-screen" class="screen">
+            <h2>最佳纪录</h2>
+            <div class="result-stats">
+                <div class="result-stat">
+                    <span>简单难度:</span>
+                    <span id="record-easy" class="highlight">--:--</span>
+                </div>
+                <div class="result-stat">
+                    <span>中等难度:</span>
+                    <span id="record-medium" class="highlight">--:--</span>
+                </div>
+                <div class="result-stat">
+                    <span>困难难度:</span>
+                    <span id="record-hard" class="highlight">--:--</span>
+                </div>
+            </div>
+            <button class="menu-button" onclick="playButtonSound(); goBack()" style="margin-top: 30px;">返回</button>
+        </div>
+
+        <!-- 设置界面 -->
+        <div id="settings-screen" class="screen">
+            <h2>游戏设置</h2>
+            <div class="settings-group">
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span>游戏音效</span>
+                        <span id="sfx-value">50%</span>
+                    </div>
+                    <input type="range" class="slider" id="sfx-slider" min="0" max="100" value="50"
+                        oninput="playSliderSound(); updateSFX(this.value)">
+                </div>
+                <div class="setting-item">
+                    <div class="setting-label">
+                        <span>背景音乐</span>
+                        <span id="music-value">50%</span>
+                    </div>
+                    <input type="range" class="slider" id="music-slider" min="0" max="100" value="50"
+                        oninput="playSliderSound(); updateMusic(this.value)">
+                </div>
+            </div>
+            <button class="menu-button" onclick="playButtonSound(); saveSettings()"
+                style="margin-top: 30px;">保存设置</button>
+            <button class="menu-button" onclick="playButtonSound(); goBack()"
+                style="background: #888; margin-top: 15px;">返回</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏状态
+        const gameState = {
+            difficulty: 'easy',
+            selectedDifficulty: null,
+            cards: [],
+            flippedCards: [],
+            matchedPairs: 0,
+            moves: 0,
+            time: 0,
+            timer: null,
+            isPlaying: true,
+            canFlip: true,
+            isMusicPlaying: true,
+            settings: {
+                sfx: 50,
+                music: 50
+            },
+            // 页面历史栈，用于记录访问路径
+            screenHistory: []
+        };
+
+        // 难度配置
+        const difficulties = {
+            easy: { rows: 4, cols: 4, pairs: 8 },
+            medium: { rows: 5, cols: 6, pairs: 15 },
+            hard: { rows: 6, cols: 8, pairs: 24 }
+        };
+
+        // Emoji图标集（可根据需要扩展）
+        const emojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+            '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦄',
+            '🐙', '🐠', '🐬', '🐳', '🦈', '🦒', '🦏', '🐘', '🦛', '🦘'];
+
+        // ================ 音频资源配置 ================
+        // 注：以下链接来自免费的在线音频素材资源[citation:1]，但建议在正式项目中确认其长期可用性或自行托管。
+        const audioResources = {
+            // 背景音乐 - 来自免费素材网站的轻音乐
+            bgm: {
+                url: 'https://cdn.pixabay.com/download/audio/2025/09/08/audio_69b2e79131.mp3?filename=beautiful_dream-401645.mp3',
+                howl: null,
+                volume: 0.3
+            },
+            // 按钮点击音效
+            buttonClick: {
+                url: 'https://assets.mixkit.co/active_storage/sfx/1109/1109.wav',
+                howl: null
+            },
+            // 翻牌音效
+            cardFlip: {
+                url: 'https://assets.mixkit.co/active_storage/sfx/1317/1317.wav',
+                howl: null
+            },
+            // 匹配成功音效
+            cardMatch: {
+                url: 'https://assets.mixkit.co/active_storage/sfx/1108/1108.wav',
+                howl: null
+            }
+        };
+
+        // ================ 音频管理函数 ================
+        // 预加载所有音频资源
+        function preloadAudioResources() {
+            console.log('开始预加载音频资源...');
+            let loadedCount = 0;
+            const totalResources = Object.keys(audioResources).length;
+
+            for (const key in audioResources) {
+                const resource = audioResources[key];
+
+                // 创建Howl实例进行预加载[citation:5]
+                resource.howl = new Howl({
+                    src: [resource.url],
+                    preload: true,
+                    volume: key === 'bgm' ? (gameState.settings.music / 100) * resource.volume : (gameState.settings.sfx / 100),
+                    loop: key === 'bgm',
+                    onload: function () {
+                        loadedCount++;
+                        console.log(`音频加载成功: ${key}`);
+                        updateLoadingProgress(loadedCount, totalResources);
+                        if(key == 'bgm'){
+                            playBackgroundMusic();
+                        }
+                    },
+                    onloaderror: function (id, error) {
+                        console.error(`音频加载失败: ${key}`, error);
+                        loadedCount++;
+                        updateLoadingProgress(loadedCount, totalResources);
+                    }
+                });
+            }
+        }
+
+        // 更新加载进度
+        function updateLoadingProgress(loaded, total) {
+            const progress = Math.min(100, Math.round((loaded / total) * 100));
+            const progressBar = document.querySelector('.loading-progress');
+            if (progressBar) {
+                progressBar.style.width = `${progress}%`;
+            }
+
+            // 所有音频加载完成后，显示主菜单
+            if (loaded >= total) {
+                setTimeout(() => {
+                    document.getElementById('loading-screen').style.display = 'none';
+                    gameState.screenHistory = ['main-menu'];
+                    showScreen('main-menu');
+                }, 500);
+            }
+        }
+
+        // 播放按钮音效
+        function playButtonSound() {
+            if (audioResources.buttonClick.howl && gameState.settings.sfx > 0) {
+                audioResources.buttonClick.howl.volume(gameState.settings.sfx / 100);
+                audioResources.buttonClick.howl.play();
+            }
+        }
+
+        // 播放滑块音效
+        function playSliderSound() {
+            // 使用按钮音效替代
+            playButtonSound();
+        }
+
+        // 播放翻牌音效
+        function playFlipSound() {
+            if (audioResources.cardFlip.howl && gameState.settings.sfx > 0) {
+                audioResources.cardFlip.howl.volume(gameState.settings.sfx / 100);
+                audioResources.cardFlip.howl.play();
+            }
+        }
+
+        // 播放匹配成功音效
+        function playMatchSound() {
+            if (audioResources.cardMatch.howl && gameState.settings.sfx > 0) {
+                audioResources.cardMatch.howl.volume(gameState.settings.sfx / 100);
+                audioResources.cardMatch.howl.play();
+            }
+        }
+
+        // 播放背景音乐
+        function playBackgroundMusic() {
+            if (!gameState.isMusicPlaying || gameState.settings.music === 0) return;
+
+            if (audioResources.bgm.howl && !audioResources.bgm.howl.playing()) {
+                // 计算实际音量（设置值 * 基础音量）
+                const actualVolume = (gameState.settings.music / 100) * audioResources.bgm.volume;
+                audioResources.bgm.howl.volume(actualVolume);
+                audioResources.bgm.howl.play();
+                console.log('背景音乐开始播放');
+            }
+        }
+
+        // 停止背景音乐
+        function stopBackgroundMusic() {
+            if (audioResources.bgm.howl && audioResources.bgm.howl.playing()) {
+                audioResources.bgm.howl.stop();
+                console.log('背景音乐停止');
+            }
+        }
+
+        // 切换背景音乐
+        function toggleMusic() {
+            gameState.isMusicPlaying = !gameState.isMusicPlaying;
+            const toggleBtn = document.getElementById('music-toggle');
+
+            if (gameState.isMusicPlaying && gameState.settings.music > 0) {
+                playBackgroundMusic();
+                toggleBtn.textContent = '♪';
+                toggleBtn.style.background = '#6e8efb';
+            } else {
+                stopBackgroundMusic();
+                toggleBtn.textContent = '🔇';
+                toggleBtn.style.background = '#888';
+            }
+        }
+
+        // 更新背景音乐音量
+        function updateBackgroundMusicVolume() {
+            if (audioResources.bgm.howl) {
+                const actualVolume = (gameState.settings.music / 100) * audioResources.bgm.volume;
+                audioResources.bgm.howl.volume(actualVolume);
+
+                // 如果音乐应该播放但没在播放，则开始播放
+                if (gameState.isMusicPlaying && gameState.settings.music > 0 && !audioResources.bgm.howl.playing()) {
+                    playBackgroundMusic();
+                }
+            }
+        }
+
+        // 页面历史管理
+        function pushScreenToHistory(screenId) {
+            // 不重复添加相同页面
+            if (gameState.screenHistory.length === 0 ||
+                gameState.screenHistory[gameState.screenHistory.length - 1] !== screenId) {
+                gameState.screenHistory.push(screenId);
+            }
+        }
+
+        function getPreviousScreen() {
+            if (gameState.screenHistory.length > 1) {
+                // 移除当前页面
+                gameState.screenHistory.pop();
+                // 返回上一个页面
+                return gameState.screenHistory[gameState.screenHistory.length - 1];
+            }
+            return 'main-menu';
+        }
+
+        // 屏幕切换
+        function showScreen(screenId) {
+            // 记录页面历史
+            pushScreenToHistory(screenId);
+
+            // 隐藏所有屏幕
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+                screen.style.display = 'none';
+            });
+
+            // 显示目标屏幕
+            const targetScreen = document.getElementById(screenId);
+            targetScreen.style.display = 'block';
+            setTimeout(() => {
+                targetScreen.classList.add('active');
+            }, 10);
+        }
+
+        // 返回上一页
+        function goBack() {
+            const previousScreen = getPreviousScreen();
+            showScreen(previousScreen);
+        }
+
+        // 初始化
+        function init() {
+            // 加载设置和记录
+            loadSettings();
+            loadRecords();
+
+            // 预加载音频资源（这会触发加载进度更新）
+            preloadAudioResources();
+        }
+
+        // 选择难度
+        function selectDifficulty(difficulty) {
+            gameState.selectedDifficulty = difficulty;
+
+            // 更新UI
+            document.querySelectorAll('.difficulty-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+        }
+
+        // 开始游戏
+        function startGame() {
+            if (!gameState.selectedDifficulty) {
+                gameState.selectedDifficulty = 'easy';
+                document.querySelector('.difficulty-item').classList.add('selected');
+            }
+
+            gameState.difficulty = gameState.selectedDifficulty;
+            resetGame();
+            createCards();
+            showScreen('game-screen');
+            startTimer();
+
+            // 确保背景音乐播放
+            if (gameState.isMusicPlaying && gameState.settings.music > 0) {
+                playBackgroundMusic();
+            }
+        }
+
+        // 重置游戏
+        function resetGame() {
+            gameState.cards = [];
+            gameState.flippedCards = [];
+            gameState.matchedPairs = 0;
+            gameState.moves = 0;
+            gameState.time = 0;
+            gameState.isPlaying = true;
+            gameState.canFlip = true;
+
+            if (gameState.timer) {
+                clearInterval(gameState.timer);
+                gameState.timer = null;
+            }
+
+            updateStats();
+        }
+
+        // 创建卡片
+        function createCards() {
+            const config = difficulties[gameState.difficulty];
+            const totalCards = config.rows * config.cols;
+            const pairs = config.pairs;
+
+            // 生成卡片对
+            let cardValues = [];
+            const selectedEmojis = emojis.slice(0, pairs);
+
+            // 每对卡片两个相同的emoji
+            selectedEmojis.forEach(emoji => {
+                cardValues.push(emoji, emoji);
+            });
+
+            // 洗牌算法
+            for (let i = cardValues.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [cardValues[i], cardValues[j]] = [cardValues[j], cardValues[i]];
+            }
+
+            // 创建卡片元素
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+
+            // 设置网格布局
+            container.style.gridTemplateColumns = `repeat(${config.cols}, 1fr)`;
+            container.style.gridTemplateRows = `repeat(${config.rows}, 1fr)`;
+
+            // 生成卡片
+            for (let i = 0; i < totalCards; i++) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.dataset.index = i;
+                card.dataset.value = cardValues[i] || '';
+
+                // 修改：卡片背面不再有问号内容，通过CSS添加
+                card.innerHTML = `
+                    <div class="card-back"></div>
+                    <div class="card-front">${cardValues[i] || ''}</div>
+                `;
+
+                card.addEventListener('click', () => flipCard(card));
+                container.appendChild(card);
+                gameState.cards.push({
+                    element: card,
+                    value: cardValues[i],
+                    isFlipped: false,
+                    isMatched: false
+                });
+            }
+        }
+
+        // 翻转卡片
+        function flipCard(card) {
+            if (!gameState.canFlip || !gameState.isPlaying) return;
+
+            const index = parseInt(card.dataset.index);
+            const cardState = gameState.cards[index];
+
+            if (cardState.isFlipped || cardState.isMatched) return;
+
+            // 播放翻牌音效
+            playFlipSound();
+
+            // 翻牌动画
+            card.classList.add('flipped');
+            cardState.isFlipped = true;
+            gameState.flippedCards.push(cardState);
+
+            // 如果翻了两张牌，检查是否匹配
+            if (gameState.flippedCards.length === 2) {
+                gameState.moves++;
+                updateStats();
+                gameState.canFlip = false;
+
+                setTimeout(checkMatch, 800);
+            }
+        }
+
+        // 检查匹配
+        function checkMatch() {
+            const [card1, card2] = gameState.flippedCards;
+
+            if (card1.value === card2.value) {
+                // 匹配成功
+                card1.element.classList.add('matched');
+                card2.element.classList.add('matched');
+                card1.isMatched = true;
+                card2.isMatched = true;
+
+                // 播放匹配成功音效
+                playMatchSound();
+
+                gameState.matchedPairs++;
+
+                // 检查游戏是否结束
+                const config = difficulties[gameState.difficulty];
+                if (gameState.matchedPairs === config.pairs) {
+                    endGame();
+                }
+            } else {
+                // 匹配失败，翻回去
+                card1.element.classList.remove('flipped');
+                card2.element.classList.remove('flipped');
+                card1.isFlipped = false;
+                card2.isFlipped = false;
+            }
+
+            // 重置翻牌状态
+            gameState.flippedCards = [];
+            gameState.canFlip = true;
+        }
+
+        // 开始计时
+        function startTimer() {
+            gameState.timer = setInterval(() => {
+                gameState.time++;
+                updateStats();
+            }, 1000);
+        }
+
+        // 更新游戏统计
+        function updateStats() {
+            document.getElementById('moves').textContent = gameState.moves;
+
+            const minutes = Math.floor(gameState.time / 60).toString().padStart(2, '0');
+            const seconds = (gameState.time % 60).toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${minutes}:${seconds}`;
+        }
+
+        // 结束游戏
+        function endGame() {
+            gameState.isPlaying = false;
+            clearInterval(gameState.timer);
+
+            // 显示结果
+            const minutes = Math.floor(gameState.time / 60).toString().padStart(2, '0');
+            const seconds = (gameState.time % 60).toString().padStart(2, '0');
+
+            document.getElementById('final-time').textContent = `${minutes}:${seconds}`;
+            document.getElementById('final-moves').textContent = gameState.moves;
+
+            // 更新最佳纪录
+            updateBestRecord(gameState.difficulty, gameState.time);
+
+            // 显示结果界面
+            setTimeout(() => {
+                showScreen('result-screen');
+            }, 1000);
+        }
+
+        // 更新最佳纪录
+        function updateBestRecord(difficulty, time) {
+            const recordKey = `best_time_${difficulty}`;
+            const bestTime = localStorage.getItem(recordKey);
+
+            if (!bestTime || time < parseInt(bestTime)) {
+                localStorage.setItem(recordKey, time.toString());
+            }
+
+            loadRecords();
+        }
+
+        // 加载最佳纪录
+        function loadRecords() {
+            const difficulties = ['easy', 'medium', 'hard'];
+            difficulties.forEach(diff => {
+                const time = localStorage.getItem(`best_time_${diff}`);
+                const element = document.getElementById(`record-${diff}`);
+
+                if (time) {
+                    const minutes = Math.floor(time / 60).toString().padStart(2, '0');
+                    const seconds = (time % 60).toString().padStart(2, '0');
+                    element.textContent = `${minutes}:${seconds}`;
+                } else {
+                    element.textContent = '--:--';
+                }
+            });
+
+            // 更新游戏结束界面的最佳时间
+            const bestTime = localStorage.getItem(`best_time_${gameState.difficulty}`);
+            const bestTimeElement = document.getElementById('best-time');
+
+            if (bestTime) {
+                const minutes = Math.floor(bestTime / 60).toString().padStart(2, '0');
+                const seconds = (bestTime % 60).toString().padStart(2, '0');
+                bestTimeElement.textContent = `${minutes}:${seconds}`;
+            }
+        }
+
+        // 重新开始游戏
+        function restartGame() {
+            resetGame();
+            createCards();
+            showScreen('game-screen');
+            startTimer();
+        }
+
+        // 更新音效设置
+        function updateSFX(value) {
+            gameState.settings.sfx = value;
+            document.getElementById('sfx-value').textContent = `${value}%`;
+
+            // 更新音效音量
+            if (audioResources.buttonClick.howl) {
+                audioResources.buttonClick.howl.volume(value / 100);
+            }
+            if (audioResources.cardFlip.howl) {
+                audioResources.cardFlip.howl.volume(value / 100);
+            }
+            if (audioResources.cardMatch.howl) {
+                audioResources.cardMatch.howl.volume(value / 100);
+            }
+        }
+
+        // 更新音乐设置
+        function updateMusic(value) {
+            gameState.settings.music = value;
+            document.getElementById('music-value').textContent = `${value}%`;
+            updateBackgroundMusicVolume();
+        }
+
+        // 加载设置
+        function loadSettings() {
+            const savedSettings = localStorage.getItem('game_settings');
+            if (savedSettings) {
+                gameState.settings = JSON.parse(savedSettings);
+                document.getElementById('sfx-slider').value = gameState.settings.sfx;
+                document.getElementById('music-slider').value = gameState.settings.music;
+                document.getElementById('sfx-value').textContent = `${gameState.settings.sfx}%`;
+                document.getElementById('music-value').textContent = `${gameState.settings.music}%`;
+            }
+        }
+
+        // 保存设置
+        function saveSettings() {
+            localStorage.setItem('game_settings', JSON.stringify(gameState.settings));
+            alert('设置已保存！');
+            goBack();
+        }
+
+        // 初始化游戏
+        window.onload = init;
+
+        // 页面可见性变化时处理音频
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                // 页面隐藏时暂停背景音乐
+                if (audioResources.bgm.howl && audioResources.bgm.howl.playing()) {
+                    audioResources.bgm.howl.pause();
+                }
+            } else if (gameState.isMusicPlaying && gameState.settings.music > 0) {
+                // 页面显示时恢复背景音乐
+                if (audioResources.bgm.howl) {
+                    audioResources.bgm.howl.play();
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
